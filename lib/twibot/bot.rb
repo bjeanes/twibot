@@ -48,34 +48,34 @@ module Twibot
         exit
       end
       
-      case config[:process]
-      when :all, nil
-        # do nothing so it will fetch ALL
-      when :new
-        # Make sure we don't process messages and tweets received prior to bot launch
-        messages = twitter.messages(:received, { :count => 1 })
-        processed[:message] = messages.first.id if messages.length > 0
-
-        handle_tweets = !handlers.nil? && handlers[:tweet].length + handlers[:reply].length > 0
-        tweets = []
-
-        begin
-          tweets = handle_tweets ? twitter.timeline_for(config[:timeline_for], { :count => 1 }) : []
-        rescue Twitter::RESTError => e
-          log.error("Failed to connect to Twitter.  It's likely down for a bit:")
-          log.error(e.to_s)
-        end
-
-        processed[:tweet] = tweets.first.id if tweets.length > 0
-        processed[:reply] = tweets.first.id if tweets.length > 0
-      when Numeric, /\d+/ # a tweet ID to start from
-        processed[:tweet] = processed[:reply] = processed[:message] = config[:process]
-      else abort "Unknown process option #{config[:process]}, aborting..."
-      end
+      choose_tweets_to_process
 
       poll
     end
 
+
+    #
+    # Configure bot
+    #
+    def configure
+      yield @config
+      @conf = nil
+      @twitter = nil
+    end
+
+   private
+   
+    #
+    # Return logger instance
+    #
+    def log
+      return @log if @log
+      os = config[:log_file] ? File.open(config[:log_file], "a") : $stdout
+      @log = Logger.new(os)
+      @log.level = Logger.const_get(config[:log_level] ? config[:log_level].upcase : "INFO")
+      @log
+    end   
+   
     #
     # Poll Twitter API in a loop and pass on messages and tweets when they appear
     #
@@ -161,28 +161,7 @@ module Twibot
       log.info "Received #{num} #{num == 1 ? labels[0] : labels[1]}"
       num
     end
-
-    #
-    # Return logger instance
-    #
-    def log
-      return @log if @log
-      os = config[:log_file] ? File.open(config[:log_file], "a") : $stdout
-      @log = Logger.new(os)
-      @log.level = Logger.const_get(config[:log_level] ? config[:log_level].upcase : "INFO")
-      @log
-    end
-
-    #
-    # Configure bot
-    #
-    def configure
-      yield @config
-      @conf = nil
-      @twitter = nil
-    end
-
-   private
+   
     #
     # Map configuration settings
     #
@@ -224,6 +203,38 @@ Unable to continue without login and password. Do one of the following:
 
       @conf
     end
+    
+    # 
+    # Decides which tweets the bot should ignore and which it should 
+    # process based on the :process configuration option
+    # 
+    def choose_tweets_to_process
+      case config[:process]
+      when :all, nil
+        # do nothing so it will fetch ALL
+      when :new
+        # Make sure we don't process messages and tweets received prior to bot launch
+        messages = twitter.messages(:received, { :count => 1 })
+        processed[:message] = messages.first.id if messages.length > 0
+
+        handle_tweets = !handlers.nil? && handlers[:tweet].length + handlers[:reply].length > 0
+        tweets = []
+
+        begin
+          tweets = handle_tweets ? twitter.timeline_for(config[:timeline_for], { :count => 1 }) : []
+        rescue Twitter::RESTError => e
+          log.error("Failed to connect to Twitter.  It's likely down for a bit:")
+          log.error(e.to_s)
+        end
+
+        processed[:tweet] = tweets.first.id if tweets.length > 0
+        processed[:reply] = tweets.first.id if tweets.length > 0
+      when Numeric, /\d+/ # a tweet ID to start from
+        processed[:tweet] = processed[:reply] = processed[:message] = config[:process]
+      else abort "Unknown process option #{config[:process]}, aborting..."
+      end
+    end
+    
   end
 end
 

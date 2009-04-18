@@ -37,22 +37,22 @@ class TestBot < Test::Unit::TestCase
 
   should "return logger instance" do
     bot = Twibot::Bot.new(Twibot::Config.default << Twibot::Config.new)
-    assert bot.log.is_a?(Logger)
+    assert bot.send(:log).is_a?(Logger)
   end
 
   should "respect configured log level" do
     bot = Twibot::Bot.new(Twibot::Config.new(:log_level => "info"))
-    assert_equal Logger::INFO, bot.log.level
+    assert_equal Logger::INFO, bot.send(:log).level
 
     bot = Twibot::Bot.new(Twibot::Config.new(:log_level => "warn"))
-    assert_equal Logger::WARN, bot.log.level
+    assert_equal Logger::WARN, bot.send(:log).level
   end
 
   should "should return false from receive without handlers" do
     bot = Twibot::Bot.new(Twibot::Config.new)
-    assert !bot.receive_messages
-    assert !bot.receive_replies
-    assert !bot.receive_tweets
+    assert !bot.send(:receive_messages)
+    assert !bot.send(:receive_replies)
+    assert !bot.send(:receive_tweets)
   end
 
   context "with the process option specified" do
@@ -118,17 +118,17 @@ class TestBot < Test::Unit::TestCase
     bot.add_handler(:message, Twibot::Handler.new)
     bot.twitter.expects(:messages).with(:received, {}).returns([twitter_message("cjno", "Hei der!")])
 
-    assert bot.receive_messages
+    assert bot.send(:receive_messages)
   end
 
   should "remember last received message" do
     bot = Twibot::Bot.new(Twibot::Config.new(:log_level => "error"))
     bot.add_handler(:message, Twibot::Handler.new)
     bot.twitter.expects(:messages).with(:received, {}).returns([twitter_message("cjno", "Hei der!")])
-    assert_equal 1, bot.receive_messages
+    assert_equal 1, bot.send(:receive_messages)
 
     bot.twitter.expects(:messages).with(:received, { :since_id => 1 }).returns([])
-    assert_equal 0, bot.receive_messages
+    assert_equal 0, bot.send(:receive_messages)
   end
 
   should "receive tweet" do
@@ -136,7 +136,7 @@ class TestBot < Test::Unit::TestCase
     bot.add_handler(:tweet, Twibot::Handler.new)
     bot.twitter.expects(:timeline_for).with(:public, {}).returns([tweet("cjno", "Hei der!")])
 
-    assert_equal 1, bot.receive_tweets
+    assert_equal 1, bot.send(:receive_tweets)
   end
 
   should "receive friend tweets if configured" do
@@ -144,17 +144,17 @@ class TestBot < Test::Unit::TestCase
     bot.add_handler(:tweet, Twibot::Handler.new)
     bot.twitter.expects(:timeline_for).with(:friends, {}).returns([tweet("cjno", "Hei der!")])
 
-    assert_equal 1, bot.receive_tweets
+    assert_equal 1, bot.send(:receive_tweets)
   end
 
   should "remember received tweets" do
     bot = Twibot::Bot.new(Twibot::Config.new(:log_level => "error"))
     bot.add_handler(:tweet, Twibot::Handler.new)
     bot.twitter.expects(:timeline_for).with(:public, {}).returns([tweet("cjno", "Hei der!")])
-    assert_equal 1, bot.receive_tweets
+    assert_equal 1, bot.send(:receive_tweets)
 
     bot.twitter.expects(:timeline_for).with(:public, { :since_id => 1 }).returns([])
-    assert_equal 0, bot.receive_tweets
+    assert_equal 0, bot.send(:receive_tweets)
   end
 
   should "receive reply when tweet starts with login" do
@@ -162,17 +162,17 @@ class TestBot < Test::Unit::TestCase
     bot.add_handler(:reply, Twibot::Handler.new)
     bot.twitter.expects(:status).with(:replies, {}).returns([tweet("cjno", "@irbno Hei der!")])
 
-    assert_equal 1, bot.receive_replies
+    assert_equal 1, bot.send(:receive_replies)
   end
 
   should "remember received replies" do
     bot = Twibot::Bot.new(Twibot::Config.new(:log_level => "error", :login => "irbno"))
     bot.add_handler(:reply, Twibot::Handler.new)
     bot.twitter.expects(:status).with(:replies, {}).returns([tweet("cjno", "@irbno Hei der!")])
-    assert_equal 1, bot.receive_replies
+    assert_equal 1, bot.send(:receive_replies)
 
     bot.twitter.expects(:status).with(:replies, { :since_id => 1 }).returns([])
-    assert_equal 0, bot.receive_replies
+    assert_equal 0, bot.send(:receive_replies)
   end
 
   should "use public as default timeline method for tweet 'verb'" do
