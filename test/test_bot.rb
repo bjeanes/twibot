@@ -56,61 +56,71 @@ class TestBot < Test::Unit::TestCase
   end
 
   context "with the process option specified" do
-    setup do
-      @bot = Twibot::Bot.new(@config = Twibot::Config.default)
-      @bot.stubs(:prompt?).returns(false)
-      @bot.stubs(:twitter).returns(stub)
-      @bot.stubs(:processed).returns(stub)
-
+    should "call the choose_tweets_to_process when running the bot" do
+      bot = Twibot::Bot.new(Twibot::Config.new)
+      
       # stop Bot actually starting during tests
-      @bot.stubs(:poll)
+      bot.stubs(:poll)
+      bot.stubs(:login)
+      
+      bot.expects(:choose_tweets_to_process).once
+      bot.run!
     end
+    
+    context "the choose_tweets_to_process method" do
+      setup do
+        @bot = Twibot::Bot.new(@config = Twibot::Config.default)
+        @bot.stubs(:prompt?).returns(false)
+        @bot.stubs(:twitter).returns(stub)
+        @bot.stubs(:processed).returns(stub)
+      end
 
-    should "not process tweets prior to bot launch if :process option is set to :new" do
-      @bot.stubs(:handlers).returns({:tweet => [stub], :reply => []})
 
-      # Should fetch the latest ID for both messages and tweets
-      @bot.twitter.expects(:messages).with(:received, { :count => 1 }).
-        returns([stub(:id => (message_id = stub))]).once
-      @bot.twitter.expects(:timeline_for).with(:public, { :count => 1 }).
-        returns([stub(:id => (tweet_id = stub))]).once
+      should "not process tweets prior to bot launch if :process option is set to :new" do
+        @bot.stubs(:handlers).returns({:tweet => [stub], :reply => []})
 
-      # And set them to the since_id value to be used for future polling
-      @bot.processed.expects(:[]=).with(:message, message_id)
-      @bot.processed.expects(:[]=).with(:tweet,   tweet_id)
-      @bot.processed.expects(:[]=).with(:reply,   tweet_id)
+        # Should fetch the latest ID for both messages and tweets
+        @bot.twitter.expects(:messages).with(:received, { :count => 1 }).
+          returns([stub(:id => (message_id = stub))]).once
+        @bot.twitter.expects(:timeline_for).with(:public, { :count => 1 }).
+          returns([stub(:id => (tweet_id = stub))]).once
 
-      @bot.configure { |c| c.process = :new }
-      @bot.run!
-    end
+        # And set them to the since_id value to be used for future polling
+        @bot.processed.expects(:[]=).with(:message, message_id)
+        @bot.processed.expects(:[]=).with(:tweet,   tweet_id)
+        @bot.processed.expects(:[]=).with(:reply,   tweet_id)
 
-    [:all, nil].each do |value|
-      should "process all tweets if :process option is set to #{value.inspect}" do
-        @bot.twitter.expects(:messages).never
-        @bot.twitter.expects(:timeline_for).never
+        @bot.configure { |c| c.process = :new }
+        @bot.send :choose_tweets_to_process
+      end
 
-        # Shout not set the any value for the since_id tweets
-        @bot.processed.expects(:[]=).never
+      [:all, nil].each do |value|
+        should "process all tweets if :process option is set to #{value.inspect}" do
+          @bot.twitter.expects(:messages).never
+          @bot.twitter.expects(:timeline_for).never
 
-        @bot.configure { |c| c.process = value }
-        @bot.run!
+          # Shout not set the any value for the since_id tweets
+          @bot.processed.expects(:[]=).never
+
+          @bot.configure { |c| c.process = value }
+          @bot.send :choose_tweets_to_process
+        end
+      end
+
+      should "process all tweets after the ID specified in the :process option" do
+        tweet_id = 12345
+
+        @bot.processed.expects(:[]=).with(anything, 12345).times(3)
+
+        @bot.configure { |c| c.process = tweet_id }
+        @bot.send :choose_tweets_to_process
+      end
+
+      should "raise exit when the :process option is not recognized" do
+        @bot.configure { |c| c.process = "something random" }
+        assert_raise(SystemExit) { @bot.send :choose_tweets_to_process }
       end
     end
-
-    should "process all tweets after the ID specified in the :process option" do
-      tweet_id = 12345
-
-      @bot.processed.expects(:[]=).with(anything, 12345).times(3)
-
-      @bot.configure { |c| c.process = tweet_id }
-      @bot.run!
-    end
-
-    should "raise exit when the :process option is not recognized" do
-      @bot.configure { |c| c.process = "something random" }
-      assert_raise(SystemExit) { @bot.run! }
-    end
-
   end
 
   should "receive message" do
