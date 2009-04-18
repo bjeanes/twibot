@@ -1,3 +1,7 @@
+== 0.1.7 / 2009-04-18
+
+* Added :process option that configures how the bot will process incoming tweets and messages
+
 == 0.1.6 / 2009-04-13
 
 * Fixed configure block not actually working for username and password (Bodaniel Jeanes)
